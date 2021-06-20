@@ -1,0 +1,38 @@
+name: Docker
+on:
+  push:
+    # Publish `main` as Docker `latest` image.
+    branches:
+      - main
+    # Publish `v1.2.3` tags as releases.
+    tags:
+      - v*
+  # Run tests for any PRs.
+  pull_request:
+env:
+  IMAGE_NAME: simulation-opl
+jobs:
+  # Push image to GitHub Packages.
+  # See also https://docs.docker.com/docker-hub/builds/
+  push:
+    runs-on: ubuntu-18.04
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Build image
+        run: docker build -f Dockerfile.tiago -t $IMAGE_NAME:tiago .
+      
+      - name: Build nvidia image
+        run: docker build --build-arg BASE_IMAGE= $IMAGE_NAME:tiago -f Dockerfile.nvidia -t  $IMAGE_NAME:tiago-nvidia .
+
+      - name: Log into registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Push image
+        run: |
+          docker push $IMAGE_NAME:tiago
+          docker push $IMAGE_NAME:tiago-nvidia
